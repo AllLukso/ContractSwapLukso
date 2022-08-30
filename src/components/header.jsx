@@ -5,8 +5,6 @@ import Web3Modal from "web3modal"
 import {
   contractSwapAddress
 } from '../config'
-import UniversalProfile from '@lukso/lsp-smart-contracts/artifacts/UniversalProfile.json';
-import KeyManager from '@lukso/lsp-smart-contracts/artifacts/LSP6KeyManager.json';
 
 import ContractSwap from '../artifacts/contracts/ContractSwap.sol/ContractSwap.json'
 export const Header = (props) => {
@@ -17,37 +15,32 @@ export const Header = (props) => {
   const [loadingState, setLoadingState] = useState('not-loaded')
   const [formInput, updateFormInput] = useState({ contractAddress: '', buyerAddress: '', price: '' })
   // this should be wallet connected
-  const contractSwapAddress = "0x23Cbff3674Df990aD1c62C5F11dD3745d018Db66"
   useEffect(() => {
     requireWallet()
   }, [])
 
   async function requireWallet() {
     //remember that the provider will need to be updated right now is null as is local
-    console.log("we are here")
     const web3Modal = new Web3Modal()
     const connection = await web3Modal.connect()
     const provider = new ethers.providers.Web3Provider(connection)
     const signer = provider.getSigner()
     const contract = new ethers.Contract(contractSwapAddress, ContractSwap.abi, signer)
-    console.log("whaaaats happening 11 adsfasdf")
 
     // load saleContracts too
     let userContracts = []
     let returnedContracts = await contract.getUserListedContracts();
-    console.log("whaaaats happening 222")
     setLoadingState('loaded')
     if (returnedContracts.length > 0) {
       for (let i = 0; i < returnedContracts.length; i++) {
         let price = ethers.utils.formatUnits(returnedContracts[i].price.toString(), 'ether')
-        let userContract = { contractAddress: returnedContracts[i].contractAddress, buyerAddress: returnedContracts[i].buyerAddress, price, contractSubmitted: "No", currency: returnedContracts[i].currency }
+        let userContract = { contractAddress: returnedContracts[i].contractAddress, buyerAddress: returnedContracts[i].buyerAddress, price, contractSubmitted: "No" }
         let ownableContract = new ethers.Contract(returnedContracts[i].contractAddress, ContractSwap.abi, signer)
         console.log("the pricee,", userContract)
         if (await ownableContract.owner() === contractSwapAddress) {
           userContract.contractSubmitted = "Yes"
-        }
-        console.log("thiiis", userContract.currency)
 
+        }
         userContracts.push(userContract)
       }
       setSaleContracts(userContracts)
@@ -55,11 +48,11 @@ export const Header = (props) => {
     console.log("hellooo12", returnedContracts)
     userContracts = []
     returnedContracts = await contract.getUserOfferedContracts();
-
+    
     if (returnedContracts.length > 0) {
       for (let i = 0; i < returnedContracts.length; i++) {
         let price = ethers.utils.formatUnits(returnedContracts[i].price.toString(), 'ether')
-        let userContract = { contractAddress: returnedContracts[i].contractAddress, sellerAddress: returnedContracts[i].sellerAddress, price, contractSubmitted: "No", currency: returnedContracts[i].currency }
+        let userContract = { contractAddress: returnedContracts[i].contractAddress, sellerAddress: returnedContracts[i].sellerAddress, price, contractSubmitted: "No" }
         let ownableContract = new ethers.Contract(returnedContracts[i].contractAddress, ContractSwap.abi, signer)
         console.log("the pricee,", userContract)
         if (await ownableContract.owner() === contractSwapAddress) {
@@ -106,80 +99,46 @@ export const Header = (props) => {
     const price = ethers.utils.parseUnits(contractPrice, 'ether')
     const abi = require('erc-20-abi')
     const token = new ethers.Contract("0xe11A86849d99F524cAC3E7A0Ec1241828e332C62", abi, signer)
-    console.log("ksjdhaflkjha", contractSwapAddress)
+    console.log("ksjdhaflkjha",contractSwapAddress)
     await token.approve("0x20054a1376eE6864783e2f7601E53d1F93d29FC1", price);
-    // YOU need to update this~!!!!!!!!!!!!!!!!!!!!!!
-    const transaction = await contract.purchaseContract(contractAddress, { value: price })
+    const transaction = await contract.purchaseContract(contractAddress, {value:price})
   }
 
   async function createContractSwap() {
     // connect it to the contract
-    console.log("weee are hereee111", formInput.price, formInput.contractAddress, formInput.buyerAddress)
+    console.log("weee are hereee", formInput.price, formInput.contractAddress, formInput.buyerAddress)
     // do the check and then do an error state you know
     const reg = /^0x[a-fA-F0-9]{40}$/
 
-    // let validAddress = formInput.contractAddress.match(reg)
-    // if (validAddress == null) {
-    //   setErrorState('Invalid Contract Address')
-    //   return
-    // }
-    // validAddress = formInput.buyerAddress.match(reg)
-    // if (validAddress == null) {
-    //   setErrorState('Invalid Buyer Address')
-    //   return
-    // }
+    let validAddress = formInput.contractAddress.match(reg)
+    if (validAddress == null) {
+      setErrorState('Invalid Contract Address')
+      return
+    }
+    validAddress = formInput.buyerAddress.match(reg)
+    if (validAddress == null) {
+      setErrorState('Invalid Buyer Address')
+      return
+    }
 
     const web3Modal = new Web3Modal()
     const connection = await web3Modal.connect()
     const provider = new ethers.providers.Web3Provider(connection)
     const signer = provider.getSigner()
-    console.log("who is the signer", signer)
-    let up_address = await signer.getAddress()
-    const lks_provider = new ethers.providers.JsonRpcProvider('https://rpc.l16.lukso.network')
-    const contract = new ethers.Contract(contractSwapAddress, ContractSwap.abi, lks_provider)
-    console.log(await contract.owner())
+    const contract = new ethers.Contract(contractSwapAddress, ContractSwap.abi, signer)
     // transform to ether denomination
-    console.log("did we make it here?2333")
+
     const price = ethers.utils.parseUnits(formInput.price, 'ether')
     try {
       if (currencyState === "USDC") {
         const transaction = await contract.createContractSwap(formInput.contractAddress, formInput.buyerAddress, price, 2)
         transaction.wait()
       }
-      else {
-        const targetPayload = contract.interface.encodeFunctionData(
-          'createContractSwap',
-          [formInput.contractAddress, formInput.buyerAddress, price, 1]
-        );
-        // 2. encode the payload to be run on the UP,
-        // passing the payload to be run at the targetContract as 4th parameter
-        const OPERATION_CALL = 0;
-        
-        const myUP = new ethers.Contract(up_address, UniversalProfile.abi, lks_provider);
-        console.log("test 1")
-        console.log("test 2")
-        console.log(await contract.owner())
-        console.log("test 3")
-        const owner = await myUP.owner();
-        console.log(owner,"whyyy")
-        const myKM = new ethers.Contract(owner, KeyManager.abi, lks_provider);
-        console.log("test 2")
-        let abiPayload = myUP.interface.encodeFunctionData('execute', [
-          OPERATION_CALL,
-          contractSwapAddress,
-          0,
-          targetPayload,
-        ], {
-          gasLimit: '50000000',
-        });
-        console.log("we are heeeere  11111111111222")
-        // 3. execute via the KeyManager, passing the UP payload
-        console.log("the owner", owner)
-        await myKM.connect(owner).execute(abiPayload);
-        // const transaction = await contract.createContractSwap(formInput.contractAddress, formInput.buyerAddress, price, 1)
-        // transaction.wait()
+      else{
+        const transaction = await contract.createContractSwap(formInput.contractAddress, formInput.buyerAddress, price, 1)
+        transaction.wait()
       }
-
+      
 
       setLoadingState('loaded')
     }
@@ -242,14 +201,14 @@ export const Header = (props) => {
                                   {contract.buyerAddress}
                                 </td>
                                 <td class="py-4 px-6">
-                                  {contract.currency == 1 ? (
+                                {contract.currency === 1 ? (
                                     <div>{contract.price} LYXt</div>
                                   )
                                     : (
                                       <div>{contract.price} USDC</div>
-                                    )
-                                  }
-
+                                  )
+                                }
+                                  
                                 </td>
                                 <td class="py-4 px-6">
                                   {contract.contractSubmitted === 'No' ? (
@@ -327,14 +286,14 @@ export const Header = (props) => {
                                   {contract.sellerAddress}
                                 </td>
                                 <td class="py-4 px-6">
-                                  {contract.currency == 1 ? (
+                                {contract.currency === 1 ? (
                                     <div>{contract.price} LYXt</div>
                                   )
                                     : (
                                       <div>{contract.price} USDC</div>
-                                    )
+                                  )
                                   }
-
+                                  
                                 </td>
                                 <td class="py-4 px-6">
                                   {contract.contractSubmitted === 'No' ? (
@@ -430,14 +389,14 @@ export const Header = (props) => {
                         }
                         <div>
                           <ul class="grid grid-cols-2 float-left">
-                            <span >
+                          <span >
                               <input onClick={sellUsingLYXt} class="sr-only peer" type="radio" value="LYXt" name="answer" id="LYXt" />
                               <label class="flex p-5 bg-white border border-gray-300 rounded-lg cursor-pointer focus:outline-none hover:bg-gray-50 peer-checked peer-checked:ring-2 peer-checked:border-transparent" for="LYXt">LYXt</label>
                             </span>
-                            <span>
-                              <input onClick={sellUsingUSDC} class="sr-only peer" type="radio" value="USDC" name="answer" id="USDC" />
-                              <label class="flex p-5 bg-white border border-gray-300 rounded-lg cursor-pointer focus:outline-none hover:bg-gray-50 peer-checked peer-checked:ring-2 peer-checked:border-transparent" for="USDC">USDC</label>
-                            </span>
+                          <span>
+                            <input onClick={sellUsingUSDC} class="sr-only peer" type="radio" value="USDC" name="answer" id="USDC" />
+                            <label class="flex p-5 bg-white border border-gray-300 rounded-lg cursor-pointer focus:outline-none hover:bg-gray-50 peer-checked peer-checked:ring-2 peer-checked:border-transparent" for="USDC">USDC</label>
+                          </span>
                           </ul>
                         </div>
                       </div>
@@ -448,7 +407,6 @@ export const Header = (props) => {
                       >
                         Submit
                       </a>{' '}
-                      <h4 class="center italic text-gray-700 text-base"> Please note that a 2.5%  fee is applied to the final price of the contract</h4>
                     </form>
                   </div>
                   <div class="text-red-500 text-3xl font-bold font-mono">{errorState}</div>
